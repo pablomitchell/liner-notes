@@ -9,7 +9,7 @@ from data import utils
 
 
 PATTERNS = {
-    # re.IGNORECASE turned on
+    # always ignore case
 
     # '2009 Charvin Chateauneuf-du-Pape - $'
     # 'NV #55 Mystery Chardonnay - $'
@@ -58,6 +58,7 @@ PATTERNS = {
 
 
 def resub(name, s, replacement=''):
+    # always ignore case and default to deleting the match
     return re.sub(PATTERNS[name], replacement, s, re.IGNORECASE)
 
 
