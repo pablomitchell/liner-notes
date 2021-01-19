@@ -39,7 +39,7 @@ PATTERNS = {
     #     '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~'
     #
 
-    # anything other than '-', '.', '?', '\s', '\w'
+    # anything other than: [-.?,\s\w]
     'SYMBOL': r"[^-.?'\s\w]",
 
     # anything other than '\s' or '\w' and repeats 4+ times
@@ -63,13 +63,16 @@ def resub(name, s, replacement=''):
 
 
 def get_label(s):
-    # Extract the wine ``label`` from the string
+    # Extract the wine 'label' from the string
     result = re.search(PATTERNS['LABEL'], s, re.IGNORECASE)
     msg = result.group(1) if result else 'empty'
 
     msg = resub('FORMAT', msg)
     msg = resub('QUANTITY', msg)
-    msg = resub('SYMBOL', msg)
+
+    # re.IGNORECASE breaks this one for someone
+    # msg = resub('SYMBOL', msg)
+    msg = re.sub(PATTERNS['SYMBOL'], '', msg)
 
     return msg
 
@@ -182,7 +185,10 @@ def clean_message(s):
     msg = resub('POUND', msg, ' number ')
     msg = resub('SLASH', msg, ' and ')
 
-    msg = resub('SYMBOL', msg)
+    # re.IGNORECASE breaks this one for someone
+    # msg = resub('SYMBOL', msg)
+    msg = re.sub(PATTERNS['SYMBOL'], '', msg)
+
     msg = resub('RUN_ON', msg, '')
 
     note = ' '.join(msg.split())  # normalize whitespace
@@ -235,6 +241,18 @@ def test():
     print(f'{s}\n{out}\n')
 
     s = 'Charvin Chateauneuf-du-Pape'
+    out = get_label(s)
+    print(f'{s}\n{out}\n')
+
+    s = 'Charvin Chateauneuf-du-Pape'
+    out = get_label(s)
+    print(f'{s}\n{out}\n')
+
+    s = '2019 Domaine de la Chanteleuserie Bourgueil Rosé 750ml (Loire) - $13.76\n(NR)'
+    out = get_label(s)
+    print(f'{s}\n{out}\n')
+
+    s = '2019 Domaine Ledogar “Carignan Blanc” 750ml (Aude) - $28.71'
     out = get_label(s)
     print(f'{s}\n{out}\n')
 
@@ -292,10 +310,11 @@ def clean(infile, outfile=None, verbose=False):
     Example
     -------
     >>> df = clean(
-        infile='garagiste_wine.csv',
-        outfile='garagise_wine_clean.csv',
-        verbose=True,
-    )
+    ...    infile='garagiste_wine.csv',
+    ...    outfile='garagise_wine_clean.csv',
+    ...    verbose=True,
+    ... )
+
     """
     if verbose:
         test()
