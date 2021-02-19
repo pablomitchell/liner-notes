@@ -1,24 +1,22 @@
-from datasets import (
-    load_dataset,
-    load_metric,
-)
-from transformers import (
-    BertTokenizer,
-    EncoderDecoderModel,
-    Seq2SeqTrainer,
-    Seq2SeqTrainingArguments,
-)
+import torch
+from datasets import load_dataset, load_metric
+from transformers import BertTokenizer, EncoderDecoderModel
+from transformers import Seq2SeqTrainer, Seq2SeqTrainingArguments
 
-batch_size = 4  # change to 16 for full training
-encoder_max_length = 512
-decoder_max_length = 128
+
+csv_file = '../data/garagiste_wine_clean.csv'
+
+batch_size = 16  # 4 but change to 16 for full training
+encoder_max_length = 128
+decoder_max_length = 512
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
 def process_data_to_model_inputs(batch):
     # tokenize the inputs and labels
-    inputs = tokenizer(batch["note"], padding="max_length", truncation=True,
+    inputs = tokenizer(batch["name"], padding="max_length", truncation=True,
                        max_length=encoder_max_length)
-    outputs = tokenizer(batch["name"], padding="max_length", truncation=True,
+    outputs = tokenizer(batch["note"], padding="max_length", truncation=True,
                         max_length=decoder_max_length)
 
     batch["input_ids"] = inputs.input_ids
@@ -32,25 +30,6 @@ def process_data_to_model_inputs(batch):
     batch["labels"] = [
         [-100 if token == tokenizer.pad_token_id else token for token in labels] for labels in batch["labels"]
     ]
-
-    return batch
-
-
-# map data correctly
-def generate_summary(batch):
-    # Tokenizer will automatically set [BOS] <text> [EOS]
-    # cut off at BERT max length 512
-    inputs = tokenizer(batch["note"], padding="max_length", truncation=True,
-                       max_length=encoder_max_length, return_tensors="pt")
-    input_ids = inputs.input_ids  #.to("cuda")
-    attention_mask = inputs.attention_mask  #.to("cuda")
-
-    outputs = model.generate(input_ids, attention_mask=attention_mask)
-
-    # all special tokens including will be removed
-    output_str = tokenizer.batch_decode(outputs, skip_special_tokens=True)
-
-    batch["pred"] = output_str
 
     return batch
 
@@ -77,25 +56,34 @@ def compute_metrics(pred):
     }
 
 
-csv_file = '../data/garagiste_wine_clean.csv'
+# map data correctly
+def generate_summary(batch):
+    # Tokenizer will automatically set [BOS] <text> [EOS]
+    # cut off at BERT max length 512
+    inputs = tokenizer(batch["name"], padding="max_length", truncation=True,
+                       max_length=encoder_max_length, return_tensors="pt")
+    input_ids = inputs.input_ids.to(device)
+    attention_mask = inputs.attention_mask.to(device)
 
-val_data = load_dataset(
-    'csv',
-    data_files=csv_file,
-    split='train[90%:]',
-)
-train_data = load_dataset(
-    'csv',
-    data_files=csv_file,
-    split='train[:90%]',
-)
+    outputs = model.generate(input_ids, attention_mask=attention_mask)
+
+    # all special tokens including will be removed
+    output_str = tokenizer.batch_decode(outputs, skip_special_tokens=True)
+
+    batch["pred"] = output_str
+
+    return batch
+
+
+val_data = load_dataset('csv', data_files=csv_file, split='train[90%:]')
+train_data = load_dataset('csv', data_files=csv_file, split='train[:90%]')
 
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 tokenizer.bos_token = tokenizer.cls_token
 tokenizer.eos_token = tokenizer.sep_token
 
-# only use 32 training examples for notebook - DELETE LINE FOR FULL TRAINING
-train_data = train_data.select(range(32))
+# only use 32 training examples for notebook - COMMENT LINE FOR FULL TRAINING
+# train_data = train_data.select(range(32))
 
 train_data = train_data.map(
     process_data_to_model_inputs,
@@ -109,7 +97,7 @@ train_data.set_format(
 )
 
 # only use 16 training examples for notebook - DELETE LINE FOR FULL TRAINING
-val_data = val_data.select(range(16))
+# val_data = val_data.select(range(16))
 
 val_data = val_data.map(
     process_data_to_model_inputs,
@@ -123,7 +111,6 @@ val_data.set_format(
 )
 
 
-#bert2bert = EncoderDecoderModel.from_encoder_decoder_pretrained('bert-base-uncased', 'gpt2-large')
 bert2bert = EncoderDecoderModel.from_encoder_decoder_pretrained('bert-base-uncased', 'bert-base-uncased')
 
 # set special tokens
@@ -148,14 +135,14 @@ training_args = Seq2SeqTrainingArguments(
     per_device_train_batch_size=batch_size,
     per_device_eval_batch_size=batch_size,
     predict_with_generate=True,
-    logging_steps=2,  # set to 1000 for full training
-    save_steps=16,  # set to 500 for full training
-    eval_steps=4,  # set to 8000 for full training
-    warmup_steps=1,  # set to 2000 for full training
-    max_steps=16, # delete for full training
+    logging_steps=100,  # 2 or set to 1000 for full training
+    save_steps=50,  # 16 or set to 500 for full training
+    eval_steps=800,  # 4 or set to 8000 for full training
+    warmup_steps=200,  # 1 or set to 2000 for full training
+    #max_steps=16, # comment for full training
     overwrite_output_dir=True,
     save_total_limit=3,
-    fp16=False, # set to true if device is CUDA
+    fp16=torch.cuda.is_available(),
 )
 
 # instantiate trainer
@@ -171,8 +158,9 @@ trainer.train()
 
 
 
+
 model = EncoderDecoderModel.from_pretrained("./checkpoint-16")
-#model.to("cuda")
+model.to(device)
 
 test_data = load_dataset(
     'csv',
@@ -180,15 +168,15 @@ test_data = load_dataset(
     split='test',
 )
 
-# only use 16 training examples for notebook - DELETE LINE FOR FULL TRAINING
-test_data = test_data.select(range(16))
+# only use 16 training examples for notebook - COMMENT LINE FOR FULL TRAINING
+#test_data = test_data.select(range(16))
 
-batch_size = 16  # change to 64 for full evaluation
+batch_size = 64  # 16 or change to 64 for full evaluation
 
-results = test_data.map(generate_summary, batched=True, batch_size=batch_size, remove_columns=["note"])
+results = test_data.map(generate_summary, batched=True, batch_size=batch_size, remove_columns=["name"])
 
 pred_str = results["pred"]
-label_str = results["name"]
+label_str = results["note"]
 
 rouge_output = rouge.compute(predictions=pred_str, references=label_str, rouge_types=["rouge2"])["rouge2"].mid
 
