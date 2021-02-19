@@ -367,7 +367,7 @@ def clean(infile, outfile=None, verbose=False):
 
 if __name__ == '__main__':
     clean(
-        infile='/Users/pablo/PycharmProjects/gtc/garagiste_wine.csv',
+        infile='~/PycharmProjects/gtc/garagiste_wine.csv',
         outfile='garagiste_wine_clean.csv',
         verbose=True,
     )

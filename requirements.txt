@@ -1,3 +1,7 @@
+absl-py
+datasets
+nltk
 pandas
 pytorch
+rouge_score
 transformers
