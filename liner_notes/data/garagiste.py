@@ -5,7 +5,7 @@ import re
 
 import pandas as pd
 
-from data import utils
+from liner_notes.data import utils
 
 
 PATTERNS = {
@@ -367,7 +367,7 @@ def clean(infile, outfile=None, verbose=False):
 
 if __name__ == '__main__':
     clean(
-        infile='garagiste_wine.csv',
+        infile='/Users/pablo/PycharmProjects/gtc/garagiste_wine.csv',
         outfile='garagiste_wine_clean.csv',
         verbose=True,
     )
