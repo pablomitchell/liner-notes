@@ -4,4 +4,5 @@ nltk
 pandas
 pytorch
 rouge_score
+torch
 transformers
