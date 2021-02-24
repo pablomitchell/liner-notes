@@ -351,6 +351,7 @@ def clean(infile, outfile=None, verbose=False):
     df_clean = (df
         .get(['labels', 'notes'])
         .loc[~df['labels'].str.startswith('empty')]
+        .rename(columns={'labels': 'name', 'notes': 'note'})
         .drop_duplicates()
         .reset_index(drop=True)
     )
